@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Online Complaint Application",
+    "slug": "online-complaint-application",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0F4C81"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F4C81"
+      }
+    }
+  }
+}
