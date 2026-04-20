@@ -3,3 +3,5 @@ node_modules
 npm-debug.*
 dist
 web-build
+backend/node_modules
+backend/.env

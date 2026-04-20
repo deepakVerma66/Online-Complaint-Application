@@ -3,7 +3,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -11,12 +10,10 @@ import {
   View
 } from 'react-native';
 import SectionHeader from '../../components/SectionHeader';
-import CustomButton from '../../components/CustomButton';
 import { buildApiUrl, buildUploadUrl } from '../../constants/api';
 import colors from '../../constants/colors';
 
 const statusLabels = {
-  received: 'Received',
   forwarded_to_department: 'Forwarded to Department',
   acknowledged: 'Acknowledged',
   in_progress: 'In Progress',
@@ -24,16 +21,14 @@ const statusLabels = {
   completed: 'Resolved'
 };
 
+const formatStatusLabel = (status) => statusLabels[status] || 'Acknowledged';
+
 const formatComplaintId = (complaintId) => {
   if (!complaintId) {
     return 'Not available';
   }
 
   return `CMP-${complaintId.slice(-6).toUpperCase()}`;
-};
-
-const formatStatusLabel = (status) => {
-  return statusLabels[status] || 'Received';
 };
 
 const formatCreatedDate = (dateValue) => {
@@ -55,17 +50,10 @@ const formatCreatedDate = (dateValue) => {
 };
 
 const getStatusBadgeStyle = (status) => {
-  if (status === 'completed' || status === 'resolved') {
+  if (status === 'resolved') {
     return {
       backgroundColor: '#E7F6EE',
       textColor: colors.success
-    };
-  }
-
-  if (status === 'forwarded_to_department') {
-    return {
-      backgroundColor: '#FFF4DA',
-      textColor: '#A66A00'
     };
   }
 
@@ -76,24 +64,30 @@ const getStatusBadgeStyle = (status) => {
     };
   }
 
+  if (status === 'forwarded_to_department') {
+    return {
+      backgroundColor: '#FFF4DA',
+      textColor: '#A66A00'
+    };
+  }
+
   return {
     backgroundColor: colors.accent,
     textColor: colors.primaryDark
   };
 };
 
-const CounselorComplaintsScreen = ({ route }) => {
+const CounselorDepartmentUpdatesScreen = ({ route }) => {
   const user = route?.params?.user;
   const authToken = route?.params?.authToken;
   const [complaints, setComplaints] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
-  const [forwardingComplaintId, setForwardingComplaintId] = useState('');
 
-  const fetchComplaints = useCallback(async () => {
+  const fetchDepartmentUpdates = useCallback(async () => {
     if (!authToken) {
       setComplaints([]);
-      setErrorMessage('Login session not found. Please login again to view assigned complaints.');
+      setErrorMessage('Login session not found. Please login again to view department updates.');
       setIsLoading(false);
       return;
     }
@@ -102,7 +96,7 @@ const CounselorComplaintsScreen = ({ route }) => {
       setIsLoading(true);
       setErrorMessage('');
 
-      const response = await fetch(buildApiUrl('/api/complaints/counselor/my'), {
+      const response = await fetch(buildApiUrl('/api/complaints/counselor/department-updates'), {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${authToken}`
@@ -113,14 +107,14 @@ const CounselorComplaintsScreen = ({ route }) => {
 
       if (!response.ok || !data.success) {
         setComplaints([]);
-        setErrorMessage(data.message || 'Failed to fetch assigned complaints.');
+        setErrorMessage(data.message || 'Failed to fetch department updates.');
         return;
       }
 
       setComplaints(data.complaints || []);
     } catch (error) {
       setComplaints([]);
-      setErrorMessage('Unable to load assigned complaints. Please check the server connection and try again.');
+      setErrorMessage('Unable to load department updates. Please check the server connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -128,75 +122,22 @@ const CounselorComplaintsScreen = ({ route }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchComplaints();
-    }, [fetchComplaints])
+      fetchDepartmentUpdates();
+    }, [fetchDepartmentUpdates])
   );
-
-  const handleForwardToDepartment = async (complaintId) => {
-    if (!authToken || forwardingComplaintId) {
-      return;
-    }
-
-    const targetComplaint = complaints.find((item) => item._id === complaintId);
-
-    if (targetComplaint?.status === 'forwarded_to_department') {
-      return;
-    }
-
-    try {
-      setForwardingComplaintId(complaintId);
-
-      const response = await fetch(buildApiUrl(`/api/complaints/${complaintId}/counselor/forward`), {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${authToken}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        Alert.alert('Forward failed', data.message || 'Unable to forward complaint to department.');
-        return;
-      }
-
-      setComplaints((currentComplaints) =>
-        currentComplaints.map((item) =>
-          item._id === complaintId
-            ? {
-                ...item,
-                ...data.complaint
-              }
-            : item
-        )
-      );
-
-      Alert.alert(
-        'Complaint forwarded',
-        'The complaint has been forwarded to the department head and the status is now updated.'
-      );
-    } catch (error) {
-      Alert.alert(
-        'Forward failed',
-        'Unable to forward complaint right now. Please check the server connection and try again.'
-      );
-    } finally {
-      setForwardingComplaintId('');
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <SectionHeader
-          title="My Assigned Complaints"
-          subtitle={`Only complaints assigned to ${user?.name || 'this councillor'} are shown here.`}
+          title="Complaint Status From Department"
+          subtitle={`Track department-side progress for complaints assigned to ${user?.name || 'this councillor'}.`}
         />
 
         {isLoading ? (
           <View style={styles.centerCard}>
             <ActivityIndicator color={colors.primary} />
-            <Text style={styles.infoText}>Loading assigned complaints...</Text>
+            <Text style={styles.infoText}>Loading department updates...</Text>
           </View>
         ) : null}
 
@@ -208,9 +149,9 @@ const CounselorComplaintsScreen = ({ route }) => {
 
         {!isLoading && !errorMessage && !complaints.length ? (
           <View style={styles.centerCard}>
-            <Text style={styles.emptyTitle}>No active complaints found</Text>
+            <Text style={styles.emptyTitle}>No department updates yet</Text>
             <Text style={styles.infoText}>
-              Complaints stay here only until they are forwarded to the department.
+              Complaints forwarded to the department will appear here and continue updating as the department works on them.
             </Text>
           </View>
         ) : null}
@@ -218,8 +159,6 @@ const CounselorComplaintsScreen = ({ route }) => {
         {!isLoading && !errorMessage && complaints.length
           ? complaints.map((item) => {
               const badgeStyle = getStatusBadgeStyle(item.status);
-              const isForwarding = forwardingComplaintId === item._id;
-              const canForward = item.status === 'received';
 
               return (
                 <View key={item._id} style={styles.card}>
@@ -236,22 +175,28 @@ const CounselorComplaintsScreen = ({ route }) => {
                   <Text style={styles.metaText}>Category: {item.category}</Text>
                   <Text style={styles.metaText}>Area: {item.area || 'Not available'}</Text>
                   <Text style={styles.metaText}>Ward: {item.wardNumber ? `Ward ${item.wardNumber}` : 'Not available'}</Text>
-                  <Text style={styles.metaText}>Submitted On: {formatCreatedDate(item.createdAt)}</Text>
                   <Text style={styles.metaText}>Citizen: {item.citizen?.name || 'Not available'}</Text>
-                  {item.landmark ? <Text style={styles.metaText}>Landmark: {item.landmark}</Text> : null}
+                  <Text style={styles.metaText}>Submitted On: {formatCreatedDate(item.createdAt)}</Text>
 
                   <View style={styles.sectionBlock}>
-                    <Text style={styles.sectionLabel}>Description</Text>
-                    <Text style={styles.descriptionText}>{item.description}</Text>
+                    <Text style={styles.sectionLabel}>Complaint Description</Text>
+                    <Text style={styles.sectionText}>{item.description}</Text>
                   </View>
 
-                  {item.attachments?.length ? (
+                  {item.departmentRemarks ? (
                     <View style={styles.sectionBlock}>
-                      <Text style={styles.sectionLabel}>Complaint Images</Text>
+                      <Text style={styles.sectionLabel}>Department Remarks</Text>
+                      <Text style={styles.sectionText}>{item.departmentRemarks}</Text>
+                    </View>
+                  ) : null}
+
+                  {item.departmentResolutionAttachments?.length ? (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionLabel}>Resolution Images</Text>
                       <View style={styles.imageGrid}>
-                        {item.attachments.map((attachment, index) => (
+                        {item.departmentResolutionAttachments.map((attachment, index) => (
                           <Image
-                            key={`${item._id}-attachment-${index + 1}`}
+                            key={`${item._id}-resolution-${index + 1}`}
                             source={{ uri: buildUploadUrl(attachment) }}
                             style={styles.attachmentImage}
                           />
@@ -259,35 +204,6 @@ const CounselorComplaintsScreen = ({ route }) => {
                       </View>
                     </View>
                   ) : null}
-
-                  <View style={styles.sectionBlock}>
-                    <Text style={styles.sectionLabel}>Assignment</Text>
-                    <Text style={styles.assignmentText}>
-                      Assigned to: {item.assignedToCounselor?.name || user?.name || 'Current councillor'}
-                    </Text>
-                    <Text style={styles.assignmentSubtext}>
-                      Forwarding will update the complaint status for both the councillor and citizen views.
-                    </Text>
-                  </View>
-
-                  <CustomButton
-                    title={
-                      isForwarding
-                        ? 'Forwarding...'
-                        : canForward
-                          ? 'Forward to Department'
-                          : 'Already Forwarded'
-                    }
-                    onPress={() => {
-                      if (canForward) {
-                        handleForwardToDepartment(item._id);
-                      }
-                    }}
-                    style={[
-                      styles.forwardButton,
-                      !canForward && styles.disabledForwardButton
-                    ]}
-                  />
                 </View>
               );
             })
@@ -389,7 +305,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8
   },
-  descriptionText: {
+  sectionText: {
     fontSize: 14,
     color: colors.text,
     lineHeight: 22
@@ -405,25 +321,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.accent,
     marginBottom: 10
-  },
-  assignmentText: {
-    fontSize: 14,
-    color: colors.primaryDark,
-    lineHeight: 20,
-    fontWeight: '600'
-  },
-  assignmentSubtext: {
-    fontSize: 13,
-    color: colors.textLight,
-    lineHeight: 19,
-    marginTop: 6
-  },
-  forwardButton: {
-    marginTop: 14
-  },
-  disabledForwardButton: {
-    opacity: 0.7
   }
 });
 
-export default CounselorComplaintsScreen;
+export default CounselorDepartmentUpdatesScreen;

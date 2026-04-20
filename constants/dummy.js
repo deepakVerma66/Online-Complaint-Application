@@ -23,7 +23,7 @@ export const notifications = [
 ];
 
 export const complaintStages = [
-  { id: 1, title: 'Submitted', active: true },
+  { id: 1, title: 'Received', active: true },
   { id: 2, title: 'Forwarded to Department', active: true },
   { id: 3, title: 'Acknowledged', active: true },
   { id: 4, title: 'In Progress', active: true },

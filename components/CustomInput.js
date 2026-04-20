@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
 
 const CustomInput = ({
@@ -12,7 +12,8 @@ const CustomInput = ({
   keyboardType,
   note,
   editable = true,
-  rightText
+  rightText,
+  onRightTextPress
 }) => {
   return (
     <View style={styles.wrapper}>
@@ -30,7 +31,15 @@ const CustomInput = ({
           editable={editable}
           textAlignVertical={multiline ? 'top' : 'center'}
         />
-        {rightText ? <Text style={styles.rightText}>{rightText}</Text> : null}
+        {rightText ? (
+          <TouchableOpacity
+            disabled={!onRightTextPress}
+            onPress={onRightTextPress}
+            style={styles.rightAction}
+          >
+            <Text style={styles.rightText}>{rightText}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       {note ? <Text style={styles.note}>{note}</Text> : null}
     </View>
@@ -71,11 +80,15 @@ const styles = StyleSheet.create({
     color: colors.textLight
   },
   rightText: {
-    position: 'absolute',
-    right: 16,
     color: colors.textLight,
     fontSize: 13,
-    fontWeight: '500'
+    fontWeight: '600'
+  },
+  rightAction: {
+    position: 'absolute',
+    right: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 4
   },
   note: {
     marginTop: 6,

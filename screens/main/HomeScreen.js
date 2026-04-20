@@ -1,5 +1,7 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
+import {ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import CustomButton from '../../components/CustomButton';
 import SectionHeader from '../../components/SectionHeader';
 import colors from '../../constants/colors';
 
@@ -24,13 +26,29 @@ const menuCards = [
   }
 ];
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
+  const userName = route?.params?.user?.name || 'User';
+  const currentUser = route?.params?.user;
+  const authToken = route?.params?.authToken;
+
+  const handleLogout = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }]
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
-          <Text style={styles.portalTitle}>Citizen Complaint Portal</Text>
-          <Text style={styles.heroHeading}>Hello, User</Text>
+          <View style={styles.heroTopRow}>
+            <Text style={styles.portalTitle}>Citizen Complaint Portal</Text>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutChip}>
+              <Text style={styles.logoutChipText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.heroHeading}>Hello, {userName}</Text>
           <Text style={styles.heroSubheading}>What would you like to do today?</Text>
         </View>
 
@@ -44,7 +62,12 @@ const HomeScreen = ({ navigation }) => {
             key={item.id}
             activeOpacity={0.88}
             style={styles.card}
-            onPress={() => navigation.navigate(item.screen)}
+            onPress={() =>
+              navigation.navigate(item.screen, {
+                user: currentUser,
+                authToken
+              })
+            }
           >
             <View style={styles.cardContent}>
               <View style={styles.iconBox}>
@@ -82,12 +105,30 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     elevation: 5
   },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
   portalTitle: {
     color: '#DDECF7',
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.5,
     textTransform: 'uppercase'
+  },
+  logoutChip: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)'
+  },
+  logoutChipText: {
+    color: colors.surface,
+    fontSize: 12,
+    fontWeight: '700'
   },
   heroHeading: {
     color: colors.surface,

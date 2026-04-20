@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
+import {ScrollView, StyleSheet, Text, View } from 'react-native';
 import SectionHeader from '../../components/SectionHeader';
 import colors from '../../constants/colors';
 import { notifications } from '../../constants/dummy';

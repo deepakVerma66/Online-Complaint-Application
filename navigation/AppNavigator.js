@@ -10,8 +10,10 @@ import NotificationScreen from '../screens/main/NotificationScreen';
 import CounselorHomeScreen from '../screens/counselor/CounselorHomeScreen';
 import CounselorComplaintsScreen from '../screens/counselor/CounselorComplaintsScreen';
 import CounselorAnnouncementScreen from '../screens/counselor/CounselorAnnouncementScreen';
+import CounselorDepartmentUpdatesScreen from '../screens/counselor/CounselorDepartmentUpdatesScreen';
 import DepartmentHomeScreen from '../screens/department/DepartmentHomeScreen';
 import DepartmentComplaintsScreen from '../screens/department/DepartmentComplaintsScreen';
+import DepartmentComplaintHistoryScreen from '../screens/department/DepartmentComplaintHistoryScreen';
 import MayorDashboardScreen from '../screens/mayor/MayorDashboardScreen';
 import colors from '../constants/colors';
 
@@ -69,6 +71,11 @@ const AppNavigator = () => {
           options={{ title: 'Make Announcement' }}
         />
         <Stack.Screen
+          name="CounselorDepartmentUpdates"
+          component={CounselorDepartmentUpdatesScreen}
+          options={{ title: 'Department Updates' }}
+        />
+        <Stack.Screen
           name="DepartmentHome"
           component={DepartmentHomeScreen}
           options={{ headerShown: false }}
@@ -77,6 +84,11 @@ const AppNavigator = () => {
           name="DepartmentComplaints"
           component={DepartmentComplaintsScreen}
           options={{ title: 'Department Complaints' }}
+        />
+        <Stack.Screen
+          name="DepartmentComplaintHistory"
+          component={DepartmentComplaintHistoryScreen}
+          options={{ title: 'Complaint History' }}
         />
         <Stack.Screen
           name="MayorDashboard"

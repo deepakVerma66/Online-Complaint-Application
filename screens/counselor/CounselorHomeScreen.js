@@ -1,56 +1,215 @@
-import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import SectionHeader from '../../components/SectionHeader';
+import { buildApiUrl } from '../../constants/api';
 import colors from '../../constants/colors';
 
-const actions = [
-  {
-    id: '1',
-    title: 'View Complaints',
-    description: 'Review ward complaints and forward them to the appropriate department.',
-    screen: 'CounselorComplaints'
-  },
-  {
-    id: '2',
-    title: 'Make Announcement',
-    description: 'Publish ward-level updates and notices for residents in your area.',
-    screen: 'CounselorAnnouncement'
-  }
-];
+const CounselorHomeScreen = ({ navigation, route }) => {
+  const user = route?.params?.user;
+  const authToken = route?.params?.authToken;
+  const userName = user?.name || 'Counselor';
+  const wardLabel = user?.ward ? `Ward ${user.ward}` : 'your ward';
+  const [summary, setSummary] = useState({
+    totalAssigned: 0,
+    acknowledged: 0,
+    resolved: 0,
+    forwardedToDepartment: 0,
+    inProgress: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
-const CounselorHomeScreen = ({ navigation }) => {
+  const fetchSummary = useCallback(async () => {
+    if (!authToken) {
+      setSummary({
+        totalAssigned: 0,
+        acknowledged: 0,
+        resolved: 0,
+        forwardedToDepartment: 0,
+        inProgress: 0
+      });
+      setErrorMessage('Login session not found. Please login again to view councillor data.');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      const response = await fetch(buildApiUrl('/api/complaints/counselor/summary'), {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authToken}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setErrorMessage(data.message || 'Failed to fetch dashboard summary.');
+        setSummary({
+          totalAssigned: 0,
+          acknowledged: 0,
+          resolved: 0,
+          forwardedToDepartment: 0,
+          inProgress: 0
+        });
+        return;
+      }
+
+      setSummary({
+        totalAssigned: data.summary?.totalAssigned || 0,
+        acknowledged: data.summary?.acknowledged || 0,
+        resolved: data.summary?.resolved || 0,
+        forwardedToDepartment: data.summary?.forwardedToDepartment || 0,
+        inProgress: data.summary?.inProgress || 0
+      });
+    } catch (error) {
+      setErrorMessage('Unable to load dashboard summary. Please check the server connection and try again.');
+      setSummary({
+        totalAssigned: 0,
+        acknowledged: 0,
+        resolved: 0,
+        forwardedToDepartment: 0,
+        inProgress: 0
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authToken]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSummary();
+    }, [fetchSummary])
+  );
+
+  const handleLogout = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }]
+    });
+  };
+
+  const dashboardCards = [
+    { id: '1', label: `Complaints in ${wardLabel}`, value: summary.totalAssigned, tone: 'primary' },
+    { id: '2', label: 'Forwarded to Department', value: summary.forwardedToDepartment, tone: 'warning' },
+    { id: '3', label: 'Acknowledged', value: summary.acknowledged, tone: 'secondary' },
+    { id: '4', label: 'In Progress', value: summary.inProgress, tone: 'secondary' },
+    { id: '5', label: 'Resolved', value: summary.resolved, tone: 'success' }
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
-          <Text style={styles.kicker}>Official Role</Text>
+          <View style={styles.heroTopRow}>
+            <Text style={styles.kicker}>Official Role</Text>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutChip}>
+              <Text style={styles.logoutChipText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.title}>Counselor Dashboard</Text>
           <Text style={styles.subtitle}>
-            Review citizen complaints and publish local announcements
+            Welcome, {userName}. Track complaint activity for {wardLabel} and review cases assigned to you.
           </Text>
         </View>
 
         <SectionHeader
-          title="Dashboard Actions"
-          subtitle="Use these demo routes to preview the counselor workflow."
+          title="Ward Overview"
+          subtitle="A live snapshot of complaints currently assigned to your councillor account."
         />
 
-        {actions.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.88}
-            style={styles.card}
-            onPress={() => navigation.navigate(item.screen)}
-          >
-            <View style={styles.iconBox}>
-              <Text style={styles.iconText}>{item.id}</Text>
-            </View>
-            <View style={styles.textWrap}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardDescription}>{item.description}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {isLoading ? (
+          <View style={styles.feedbackCard}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.feedbackText}>Loading dashboard summary...</Text>
+          </View>
+        ) : null}
+
+        {!isLoading && errorMessage ? (
+          <View style={styles.feedbackCard}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {!isLoading && !errorMessage ? (
+          <View style={styles.summaryGrid}>
+            {dashboardCards.map((item) => (
+              <View key={item.id} style={styles.summaryCard}>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    item.tone === 'success' && styles.summaryValueSuccess,
+                    item.tone === 'warning' && styles.summaryValueWarning,
+                    item.tone === 'secondary' && styles.summaryValueSecondary
+                  ]}
+                >
+                  {item.value}
+                </Text>
+                <Text style={styles.summaryLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={styles.actionCard}
+          onPress={() =>
+            navigation.navigate('CounselorComplaints', {
+              user,
+              authToken
+            })
+          }
+        >
+          <Text style={styles.actionTitle}>View My Complaints</Text>
+          <Text style={styles.actionDescription}>
+            Open the complaint list and review only the citizen complaints assigned under your name.
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={styles.actionCard}
+          onPress={() =>
+            navigation.navigate('CounselorAnnouncement', {
+              user,
+              authToken
+            })
+          }
+        >
+          <Text style={styles.actionTitle}>Make Announcement</Text>
+          <Text style={styles.actionDescription}>
+            Publish ward-level updates and public notices for the residents in your area.
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={styles.actionCard}
+          onPress={() =>
+            navigation.navigate('CounselorDepartmentUpdates', {
+              user,
+              authToken
+            })
+          }
+        >
+          <Text style={styles.actionTitle}>Complaint Status From Department</Text>
+          <Text style={styles.actionDescription}>
+            View department acknowledgements, progress, resolution remarks, and uploaded closure images.
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -76,12 +235,30 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     elevation: 5
   },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
   kicker: {
     color: '#DDECF7',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6
+  },
+  logoutChip: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)'
+  },
+  logoutChipText: {
+    color: colors.surface,
+    fontSize: 12,
+    fontWeight: '700'
   },
   title: {
     color: colors.surface,
@@ -95,43 +272,85 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 22
   },
-  card: {
+  feedbackCard: {
     backgroundColor: colors.surface,
     borderRadius: 22,
-    padding: 18,
-    marginBottom: 16,
+    padding: 22,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 3,
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  iconBox: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: colors.accent,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16
+    marginBottom: 20
   },
-  iconText: {
-    color: colors.primary,
-    fontSize: 18,
-    fontWeight: '700'
+  feedbackText: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginTop: 12
   },
-  textWrap: {
-    flex: 1
+  errorText: {
+    fontSize: 14,
+    color: colors.danger,
+    lineHeight: 20,
+    textAlign: 'center'
   },
-  cardTitle: {
-    fontSize: 18,
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 24
+  },
+  summaryCard: {
+    width: '48%',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 3
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.primary
+  },
+  summaryValueSuccess: {
+    color: colors.success
+  },
+  summaryValueWarning: {
+    color: colors.warning
+  },
+  summaryValueSecondary: {
+    color: colors.secondary
+  },
+  summaryLabel: {
+    fontSize: 13,
+    color: colors.textLight,
+    marginTop: 8,
+    lineHeight: 18
+  },
+  actionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    padding: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 3,
+    marginBottom: 16
+  },
+  actionTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text
   },
-  cardDescription: {
-    marginTop: 6,
+  actionDescription: {
+    marginTop: 8,
     fontSize: 14,
     color: colors.textLight,
     lineHeight: 20
