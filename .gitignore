@@ -9,3 +9,4 @@ frontend/dist
 frontend/web-build
 backend/node_modules
 backend/.env
+frontend/.env
