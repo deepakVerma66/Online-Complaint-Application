@@ -11,11 +11,33 @@ const populateComplaintRelations = (query) =>
 const getResolutionAttachments = (files = []) =>
   files.map((file) => `uploads/complaints/${file.filename}`);
 
+const departmentStatusTransitions = {
+  forwarded_to_department: ['acknowledged'],
+  acknowledged: ['in_progress', 'resolved'],
+  in_progress: ['resolved'],
+  resolved: [],
+  completed: []
+};
+
+const departmentStatusLabels = {
+  forwarded_to_department: 'Forwarded to Department',
+  acknowledged: 'Acknowledged',
+  in_progress: 'In Progress',
+  resolved: 'Resolved',
+  completed: 'Resolved'
+};
+
+const getAllowedDepartmentTransitions = (status) => departmentStatusTransitions[status] || [];
+
+const formatDepartmentStatusLabel = (status) => departmentStatusLabels[status] || 'Current';
+
 const buildCounselorSummary = (complaints) => {
   return complaints.reduce(
     (summary, complaint) => {
+      summary.totalAssigned += 1;
+
       if (complaint.status === 'received') {
-        summary.totalAssigned += 1;
+        summary.newReceived += 1;
       }
 
       if (complaint.status === 'acknowledged') {
@@ -38,6 +60,7 @@ const buildCounselorSummary = (complaints) => {
     },
     {
       totalAssigned: 0,
+      newReceived: 0,
       acknowledged: 0,
       resolved: 0,
       forwardedToDepartment: 0,
@@ -49,8 +72,10 @@ const buildCounselorSummary = (complaints) => {
 const buildDepartmentSummary = (complaints) => {
   return complaints.reduce(
     (summary, complaint) => {
+      summary.totalAssigned += 1;
+
       if (complaint.status === 'forwarded_to_department') {
-        summary.totalAssigned += 1;
+        summary.pendingReview += 1;
       }
 
       if (complaint.status === 'acknowledged') {
@@ -69,6 +94,7 @@ const buildDepartmentSummary = (complaints) => {
     },
     {
       totalAssigned: 0,
+      pendingReview: 0,
       acknowledged: 0,
       inProgress: 0,
       resolved: 0
@@ -607,6 +633,15 @@ const updateDepartmentComplaintStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Resolved complaints cannot be updated again'
+      });
+    }
+
+    const allowedNextStatuses = getAllowedDepartmentTransitions(complaint.status);
+
+    if (!allowedNextStatuses.includes(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status transition. Complaints in ${formatDepartmentStatusLabel(complaint.status)} can only move forward.`
       });
     }
 

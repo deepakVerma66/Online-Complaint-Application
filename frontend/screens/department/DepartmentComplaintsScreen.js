@@ -24,6 +24,14 @@ const statusOptions = [
   { label: 'Resolved', value: 'resolved' }
 ];
 
+const departmentStatusTransitions = {
+  forwarded_to_department: ['acknowledged'],
+  acknowledged: ['in_progress', 'resolved'],
+  in_progress: ['resolved'],
+  resolved: [],
+  completed: []
+};
+
 const MAX_RESOLUTION_ATTACHMENTS = 3;
 const IMAGE_MEDIA_TYPES = ['images'];
 
@@ -36,6 +44,27 @@ const statusLabels = {
 };
 
 const formatStatusLabel = (status) => statusLabels[status] || 'Forwarded to Department';
+
+const getAllowedDepartmentStatuses = (status) => departmentStatusTransitions[status] || [];
+
+const getDefaultSelectedStatus = (status) => {
+  const allowedStatuses = getAllowedDepartmentStatuses(status);
+
+  return allowedStatuses.length === 1 ? allowedStatuses[0] : '';
+};
+
+const getValidatedSelectedStatus = (status, selectedStatus) => {
+  const allowedStatuses = getAllowedDepartmentStatuses(status);
+
+  if (allowedStatuses.includes(selectedStatus)) {
+    return selectedStatus;
+  }
+
+  return getDefaultSelectedStatus(status);
+};
+
+const getAvailableStatusOptions = (status) =>
+  statusOptions.filter((option) => getAllowedDepartmentStatuses(status).includes(option.value));
 
 const formatComplaintId = (complaintId) => {
   if (!complaintId) {
@@ -122,13 +151,7 @@ const DepartmentComplaintsScreen = ({ route }) => {
         const nextState = { ...current };
 
         complaintList.forEach((item) => {
-          if (!nextState[item._id]) {
-            nextState[item._id] = item.status === 'forwarded_to_department'
-              ? 'acknowledged'
-              : item.status === 'completed'
-                ? 'resolved'
-                : item.status;
-          }
+          nextState[item._id] = getValidatedSelectedStatus(item.status, nextState[item._id]);
         });
 
         return nextState;
@@ -158,7 +181,11 @@ const DepartmentComplaintsScreen = ({ route }) => {
     }, [fetchComplaints])
   );
 
-  const updateSelectedStatus = (complaintId, status) => {
+  const updateSelectedStatus = (complaintId, currentStatus, status) => {
+    if (!getAllowedDepartmentStatuses(currentStatus).includes(status)) {
+      return;
+    }
+
     setSelectedStatuses((current) => ({
       ...current,
       [complaintId]: status
@@ -284,7 +311,15 @@ const DepartmentComplaintsScreen = ({ route }) => {
       return;
     }
 
-    const nextStatus = selectedStatuses[complaintId];
+    const complaint = complaints.find((item) => item._id === complaintId);
+    const allowedStatuses = getAllowedDepartmentStatuses(complaint?.status);
+
+    if (!allowedStatuses.length) {
+      Alert.alert('No update needed', 'This complaint has already reached its final status.');
+      return;
+    }
+
+    const nextStatus = getValidatedSelectedStatus(complaint?.status, selectedStatuses[complaintId]);
 
     if (!nextStatus) {
       Alert.alert('Status required', 'Please select a status before updating.');
@@ -329,31 +364,47 @@ const DepartmentComplaintsScreen = ({ route }) => {
         return;
       }
 
-      setComplaints((current) =>
-        current.map((item) =>
+      const updatedComplaint = data.complaint || {};
+      const updatedStatus = updatedComplaint.status || nextStatus;
+
+      setComplaints((current) => {
+        if (updatedStatus === 'resolved' || updatedStatus === 'completed') {
+          return current.filter((item) => item._id !== complaintId);
+        }
+
+        return current.map((item) =>
           item._id === complaintId
             ? {
                 ...item,
-                ...data.complaint
+                ...updatedComplaint
               }
             : item
-        )
-      );
+        );
+      });
 
-      setSelectedStatuses((current) => ({
-        ...current,
-        [complaintId]: data.complaint?.status || nextStatus
-      }));
+      setSelectedStatuses((current) => {
+        const nextState = { ...current };
 
-      if (data.complaint?.status === 'resolved') {
-        setResolutionRemarks((current) => ({
-          ...current,
-          [complaintId]: data.complaint?.departmentRemarks || ''
-        }));
-        setResolutionAttachments((current) => ({
-          ...current,
-          [complaintId]: []
-        }));
+        if (updatedStatus === 'resolved' || updatedStatus === 'completed') {
+          delete nextState[complaintId];
+          return nextState;
+        }
+
+        nextState[complaintId] = getDefaultSelectedStatus(updatedStatus);
+        return nextState;
+      });
+
+      if (updatedStatus === 'resolved' || updatedStatus === 'completed') {
+        setResolutionRemarks((current) => {
+          const nextState = { ...current };
+          delete nextState[complaintId];
+          return nextState;
+        });
+        setResolutionAttachments((current) => {
+          const nextState = { ...current };
+          delete nextState[complaintId];
+          return nextState;
+        });
       } else {
         setResolutionRemarks((current) => ({
           ...current,
@@ -405,7 +456,8 @@ const DepartmentComplaintsScreen = ({ route }) => {
 
         {!isLoading && !errorMessage && complaints.length
           ? complaints.map((item) => {
-              const selectedStatus = selectedStatuses[item._id] || (item.status === 'forwarded_to_department' ? 'acknowledged' : item.status);
+              const availableStatusOptions = getAvailableStatusOptions(item.status);
+              const selectedStatus = getValidatedSelectedStatus(item.status, selectedStatuses[item._id]);
               const isResolvedSelection = selectedStatus === 'resolved';
               const isUpdating = updatingComplaintId === item._id;
 
@@ -446,24 +498,28 @@ const DepartmentComplaintsScreen = ({ route }) => {
                     </View>
                   ) : null}
 
-                  <Text style={styles.sectionLabel}>Update Status</Text>
-                  <View style={styles.chipRow}>
-                    {statusOptions.map((status) => {
-                      const active = selectedStatus === status.value;
+                  {availableStatusOptions.length ? (
+                    <View>
+                      <Text style={styles.sectionLabel}>Update Status</Text>
+                      <View style={styles.chipRow}>
+                        {availableStatusOptions.map((status) => {
+                          const active = selectedStatus === status.value;
 
-                      return (
-                        <TouchableOpacity
-                          key={status.value}
-                          style={[styles.chip, active && styles.activeChip]}
-                          onPress={() => updateSelectedStatus(item._id, status.value)}
-                        >
-                          <Text style={[styles.chipText, active && styles.activeChipText]}>
-                            {status.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                          return (
+                            <TouchableOpacity
+                              key={status.value}
+                              style={[styles.chip, active && styles.activeChip]}
+                              onPress={() => updateSelectedStatus(item._id, item.status, status.value)}
+                            >
+                              <Text style={[styles.chipText, active && styles.activeChipText]}>
+                                {status.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : null}
 
                   {isResolvedSelection ? (
                     <View style={styles.remarksBox}>
@@ -543,11 +599,13 @@ const DepartmentComplaintsScreen = ({ route }) => {
                     </View>
                   ) : null}
 
-                  <CustomButton
-                    title={isUpdating ? 'Updating...' : 'Update Status'}
-                    onPress={() => handleUpdateStatus(item._id)}
-                    style={styles.updateButton}
-                  />
+                  {availableStatusOptions.length ? (
+                    <CustomButton
+                      title={isUpdating ? 'Updating...' : 'Update Status'}
+                      onPress={() => handleUpdateStatus(item._id)}
+                      style={styles.updateButton}
+                    />
+                  ) : null}
                 </View>
               );
             })

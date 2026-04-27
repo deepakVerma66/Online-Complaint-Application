@@ -247,7 +247,7 @@ const PostComplaintScreen = ({ route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, ]}>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -412,6 +412,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingBottom: 32,
+    // paddingTop : 0,
   },
   formCard: {
     backgroundColor: colors.surface,
@@ -422,6 +423,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 24,
     elevation: 4,
+    // marginTop: 0,
   },
   infoBanner: {
     backgroundColor: colors.accent,

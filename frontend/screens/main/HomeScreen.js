@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { SafeAreaView } from "react-native-safe-area-context";
-import {ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import CustomButton from '../../components/CustomButton';
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import SectionHeader from '../../components/SectionHeader';
+import { buildApiUrl } from '../../constants/api';
 import colors from '../../constants/colors';
 
 const menuCards = [
@@ -17,19 +24,47 @@ const menuCards = [
     title: 'Complaint Status',
     description: 'Track updates and progress of your submitted complaint.',
     screen: 'ComplaintStatus'
-  },
-  {
-    id: '3',
-    title: 'Notifications',
-    description: 'View public notices and area announcements from authorities.',
-    screen: 'Notifications'
   }
 ];
 
 const HomeScreen = ({ navigation, route }) => {
-  const userName = route?.params?.user?.name || 'User';
-  const currentUser = route?.params?.user;
   const authToken = route?.params?.authToken;
+  const [currentUser, setCurrentUser] = useState(route?.params?.user || null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const userName = currentUser?.name || route?.params?.user?.name || 'User';
+
+  const handleRefresh = useCallback(async () => {
+    if (!authToken) {
+      setErrorMessage('Login session not found. Please login again.');
+      return;
+    }
+
+    try {
+      setIsRefreshing(true);
+      setErrorMessage('');
+
+      const response = await fetch(buildApiUrl('/api/auth/me'), {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authToken}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setErrorMessage(data.message || 'Unable to refresh your home screen right now.');
+        return;
+      }
+
+      setCurrentUser(data.user || currentUser);
+    } catch (error) {
+      setErrorMessage('Unable to refresh right now. Please check the server connection and try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [authToken, currentUser]);
 
   const handleLogout = () => {
     navigation.reset({
@@ -40,7 +75,17 @@ const HomeScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <Text style={styles.portalTitle}>Citizen Complaint Portal</Text>
@@ -57,6 +102,8 @@ const HomeScreen = ({ navigation, route }) => {
           subtitle="Choose an option to continue with your grievance services."
         />
 
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
         {menuCards.map((item) => (
           <TouchableOpacity
             key={item.id}
@@ -70,9 +117,6 @@ const HomeScreen = ({ navigation, route }) => {
             }
           >
             <View style={styles.cardContent}>
-              <View style={styles.iconBox}>
-                <Text style={styles.iconText}>→</Text>
-              </View>
               <View style={styles.textWrap}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 <Text style={styles.cardDescription}>{item.description}</Text>
@@ -157,20 +201,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center'
   },
-  iconBox: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16
-  },
-  iconText: {
-    fontSize: 20,
-    color: colors.primary,
-    fontWeight: '700'
-  },
   textWrap: {
     flex: 1
   },
@@ -184,6 +214,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textLight,
     lineHeight: 20
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 13,
+    marginBottom: 12,
+    lineHeight: 18
   }
 });
 

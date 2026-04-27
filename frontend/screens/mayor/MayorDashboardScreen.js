@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -27,6 +28,7 @@ const MayorDashboardScreen = ({ navigation, route }) => {
     wardMetrics: []
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const authToken = route?.params?.authToken;
   const userName = route?.params?.user?.name || 'Mayor';
@@ -38,7 +40,7 @@ const MayorDashboardScreen = ({ navigation, route }) => {
     });
   };
 
-  const fetchOverview = useCallback(async () => {
+  const fetchOverview = useCallback(async ({ isRefresh = false } = {}) => {
     if (!authToken) {
       setOverview({
         summary: {
@@ -52,11 +54,16 @@ const MayorDashboardScreen = ({ navigation, route }) => {
       });
       setErrorMessage('Login session not found. Please login again to view mayor dashboard data.');
       setIsLoading(false);
+      setIsRefreshing(false);
       return;
     }
 
     try {
-      setIsLoading(true);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       setErrorMessage('');
 
       const response = await fetch(buildApiUrl('/api/complaints/mayor/overview'), {
@@ -69,16 +76,18 @@ const MayorDashboardScreen = ({ navigation, route }) => {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setOverview({
-          summary: {
-            totalComplaints: 0,
-            acknowledgedComplaints: 0,
-            resolvedComplaints: 0,
-            pendingComplaints: 0,
-            inProgressComplaints: 0
-          },
-          wardMetrics: []
-        });
+        if (!isRefresh) {
+          setOverview({
+            summary: {
+              totalComplaints: 0,
+              acknowledgedComplaints: 0,
+              resolvedComplaints: 0,
+              pendingComplaints: 0,
+              inProgressComplaints: 0
+            },
+            wardMetrics: []
+          });
+        }
         setErrorMessage(data.message || 'Failed to fetch mayor dashboard data.');
         return;
       }
@@ -94,19 +103,25 @@ const MayorDashboardScreen = ({ navigation, route }) => {
         wardMetrics: data.wardMetrics || []
       });
     } catch (error) {
-      setOverview({
-        summary: {
-          totalComplaints: 0,
-          acknowledgedComplaints: 0,
-          resolvedComplaints: 0,
-          pendingComplaints: 0,
-          inProgressComplaints: 0
-        },
-        wardMetrics: []
-      });
+      if (!isRefresh) {
+        setOverview({
+          summary: {
+            totalComplaints: 0,
+            acknowledgedComplaints: 0,
+            resolvedComplaints: 0,
+            pendingComplaints: 0,
+            inProgressComplaints: 0
+          },
+          wardMetrics: []
+        });
+      }
       setErrorMessage('Unable to load mayor dashboard data. Please check the server connection and try again.');
     } finally {
-      setIsLoading(false);
+      if (isRefresh) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [authToken]);
 
@@ -268,6 +283,13 @@ const MayorDashboardScreen = ({ navigation, route }) => {
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => fetchOverview({ isRefresh: true })}
+            tintColor={colors.primary}
+          />
+        }
       />
     </SafeAreaView>
   );

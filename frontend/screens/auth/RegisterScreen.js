@@ -99,7 +99,7 @@ const RegisterScreen = ({ navigation }) => {
       });
     } catch (error) {
       setErrorMessage(
-        'Unable to reach the server. If you are testing on a phone, replace localhost with your laptop IP in constants/api.js.'
+        'Unable to reach the server. Make sure the backend is running. If auto-detection fails, set EXPO_PUBLIC_API_URL to your backend URL.'
       );
     } finally {
       setIsSubmitting(false);
@@ -145,13 +145,6 @@ const RegisterScreen = ({ navigation }) => {
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
-            />
-            <CustomInput
-              label="Phone Number"
-              placeholder="Optional contact number"
-              keyboardType="phone-pad"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
             />
             <CustomInput
               label="Password"

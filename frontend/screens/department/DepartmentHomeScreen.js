@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,40 +14,45 @@ import SectionHeader from '../../components/SectionHeader';
 import { buildApiUrl } from '../../constants/api';
 import colors from '../../constants/colors';
 
-const CounselorHomeScreen = ({ navigation, route }) => {
+const DepartmentHomeScreen = ({ navigation, route }) => {
   const user = route?.params?.user;
   const authToken = route?.params?.authToken;
-  const userName = user?.name || 'Counselor';
-  const wardLabel = user?.ward ? `Ward ${user.ward}` : 'your ward';
+  const userName = user?.name || 'Department Head';
   const [summary, setSummary] = useState({
     totalAssigned: 0,
+    pendingReview: 0,
     acknowledged: 0,
-    resolved: 0,
-    forwardedToDepartment: 0,
-    inProgress: 0
+    inProgress: 0,
+    resolved: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async ({ isRefresh = false } = {}) => {
     if (!authToken) {
       setSummary({
         totalAssigned: 0,
+        pendingReview: 0,
         acknowledged: 0,
-        resolved: 0,
-        forwardedToDepartment: 0,
-        inProgress: 0
+        inProgress: 0,
+        resolved: 0
       });
-      setErrorMessage('Login session not found. Please login again to view councillor data.');
+      setErrorMessage('Login session not found. Please login again to view department data.');
       setIsLoading(false);
+      setIsRefreshing(false);
       return;
     }
 
     try {
-      setIsLoading(true);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       setErrorMessage('');
 
-      const response = await fetch(buildApiUrl('/api/complaints/counselor/summary'), {
+      const response = await fetch(buildApiUrl('/api/complaints/department/summary'), {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${authToken}`
@@ -56,35 +62,43 @@ const CounselorHomeScreen = ({ navigation, route }) => {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
+        if (!isRefresh) {
+          setSummary({
+            totalAssigned: 0,
+            pendingReview: 0,
+            acknowledged: 0,
+            inProgress: 0,
+            resolved: 0
+          });
+        }
         setErrorMessage(data.message || 'Failed to fetch dashboard summary.');
-        setSummary({
-          totalAssigned: 0,
-          acknowledged: 0,
-          resolved: 0,
-          forwardedToDepartment: 0,
-          inProgress: 0
-        });
         return;
       }
 
       setSummary({
         totalAssigned: data.summary?.totalAssigned || 0,
+        pendingReview: data.summary?.pendingReview || 0,
         acknowledged: data.summary?.acknowledged || 0,
-        resolved: data.summary?.resolved || 0,
-        forwardedToDepartment: data.summary?.forwardedToDepartment || 0,
-        inProgress: data.summary?.inProgress || 0
+        inProgress: data.summary?.inProgress || 0,
+        resolved: data.summary?.resolved || 0
       });
     } catch (error) {
+      if (!isRefresh) {
+        setSummary({
+          totalAssigned: 0,
+          pendingReview: 0,
+          acknowledged: 0,
+          inProgress: 0,
+          resolved: 0
+        });
+      }
       setErrorMessage('Unable to load dashboard summary. Please check the server connection and try again.');
-      setSummary({
-        totalAssigned: 0,
-        acknowledged: 0,
-        resolved: 0,
-        forwardedToDepartment: 0,
-        inProgress: 0
-      });
     } finally {
-      setIsLoading(false);
+      if (isRefresh) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [authToken]);
 
@@ -101,17 +115,27 @@ const CounselorHomeScreen = ({ navigation, route }) => {
     });
   };
 
-  const dashboardCards = [
-    { id: '1', label: `Complaints in ${wardLabel}`, value: summary.totalAssigned, tone: 'primary' },
-    { id: '2', label: 'Forwarded to Department', value: summary.forwardedToDepartment, tone: 'warning' },
-    { id: '3', label: 'Acknowledged', value: summary.acknowledged, tone: 'secondary' },
-    { id: '4', label: 'In Progress', value: summary.inProgress, tone: 'secondary' },
-    { id: '5', label: 'Resolved', value: summary.resolved, tone: 'success' }
+  const summaryCards = [
+    { id: '1', label: 'Total Assigned Complaints', value: summary.totalAssigned },
+    { id: '2', label: 'Pending Review', value: summary.pendingReview },
+    { id: '3', label: 'In Progress', value: summary.inProgress },
+    { id: '4', label: 'Resolved', value: summary.resolved },
+    { id: '5', label: 'Acknowledged', value: summary.acknowledged }
   ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => fetchSummary({ isRefresh: true })}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <Text style={styles.kicker}>Official Role</Text>
@@ -119,15 +143,15 @@ const CounselorHomeScreen = ({ navigation, route }) => {
               <Text style={styles.logoutChipText}>Logout</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.title}>Counselor Dashboard</Text>
+          <Text style={styles.title}>Department Head Dashboard</Text>
           <Text style={styles.subtitle}>
-            Welcome, {userName}. Track complaint activity for {wardLabel} and review cases assigned to you.
+            Welcome, {userName}. Review assigned complaints and manage resolution.
           </Text>
         </View>
 
         <SectionHeader
-          title="Ward Overview"
-          subtitle="A live snapshot of complaints currently assigned to your councillor account."
+          title="Overview"
+          subtitle="A quick snapshot of total assigned complaints and their current progress."
         />
 
         {isLoading ? (
@@ -145,18 +169,9 @@ const CounselorHomeScreen = ({ navigation, route }) => {
 
         {!isLoading && !errorMessage ? (
           <View style={styles.summaryGrid}>
-            {dashboardCards.map((item) => (
+            {summaryCards.map((item) => (
               <View key={item.id} style={styles.summaryCard}>
-                <Text
-                  style={[
-                    styles.summaryValue,
-                    item.tone === 'success' && styles.summaryValueSuccess,
-                    item.tone === 'warning' && styles.summaryValueWarning,
-                    item.tone === 'secondary' && styles.summaryValueSecondary
-                  ]}
-                >
-                  {item.value}
-                </Text>
+                <Text style={styles.summaryValue}>{item.value}</Text>
                 <Text style={styles.summaryLabel}>{item.label}</Text>
               </View>
             ))}
@@ -167,15 +182,15 @@ const CounselorHomeScreen = ({ navigation, route }) => {
           activeOpacity={0.88}
           style={styles.actionCard}
           onPress={() =>
-            navigation.navigate('CounselorComplaints', {
+            navigation.navigate('DepartmentComplaints', {
               user,
               authToken
             })
           }
         >
-          <Text style={styles.actionTitle}>View My Complaints</Text>
+          <Text style={styles.actionTitle}>Manage Complaints</Text>
           <Text style={styles.actionDescription}>
-            Open the complaint list and review only the citizen complaints assigned under your name.
+            Open the department complaint queue and update progress for assigned cases.
           </Text>
         </TouchableOpacity>
 
@@ -183,31 +198,15 @@ const CounselorHomeScreen = ({ navigation, route }) => {
           activeOpacity={0.88}
           style={styles.actionCard}
           onPress={() =>
-            navigation.navigate('CounselorAnnouncement', {
+            navigation.navigate('DepartmentComplaintHistory', {
               user,
               authToken
             })
           }
         >
-          <Text style={styles.actionTitle}>Make Announcement</Text>
+          <Text style={styles.actionTitle}>Complaint History</Text>
           <Text style={styles.actionDescription}>
-            Publish ward-level updates and public notices for the residents in your area.
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.88}
-          style={styles.actionCard}
-          onPress={() =>
-            navigation.navigate('CounselorDepartmentUpdates', {
-              user,
-              authToken
-            })
-          }
-        >
-          <Text style={styles.actionTitle}>Complaint Status From Department</Text>
-          <Text style={styles.actionDescription}>
-            View department acknowledgements, progress, resolution remarks, and uploaded closure images.
+            View resolved complaints that have been removed from the active manage complaints queue.
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -318,15 +317,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary
   },
-  summaryValueSuccess: {
-    color: colors.success
-  },
-  summaryValueWarning: {
-    color: colors.warning
-  },
-  summaryValueSecondary: {
-    color: colors.secondary
-  },
   summaryLabel: {
     fontSize: 13,
     color: colors.textLight,
@@ -342,7 +332,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 3,
-    marginBottom: 16
+    marginBottom : 15
   },
   actionTitle: {
     fontSize: 20,
@@ -357,4 +347,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default CounselorHomeScreen;
+export default DepartmentHomeScreen;

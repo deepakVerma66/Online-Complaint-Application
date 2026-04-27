@@ -6,10 +6,8 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import HomeScreen from '../screens/main/HomeScreen';
 import PostComplaintScreen from '../screens/main/PostComplaintScreen';
 import ComplaintStatusScreen from '../screens/main/ComplaintStatusScreen';
-import NotificationScreen from '../screens/main/NotificationScreen';
 import CounselorHomeScreen from '../screens/counselor/CounselorHomeScreen';
 import CounselorComplaintsScreen from '../screens/counselor/CounselorComplaintsScreen';
-import CounselorAnnouncementScreen from '../screens/counselor/CounselorAnnouncementScreen';
 import CounselorDepartmentUpdatesScreen from '../screens/counselor/CounselorDepartmentUpdatesScreen';
 import DepartmentHomeScreen from '../screens/department/DepartmentHomeScreen';
 import DepartmentComplaintsScreen from '../screens/department/DepartmentComplaintsScreen';
@@ -43,17 +41,12 @@ const AppNavigator = () => {
         <Stack.Screen
           name="PostComplaint"
           component={PostComplaintScreen}
-          options={{ title: 'Post Complaint' }}
+          options={{ title: 'Post Complaint'}}
         />
         <Stack.Screen
           name="ComplaintStatus"
           component={ComplaintStatusScreen}
           options={{ title: 'Complaint Status' }}
-        />
-        <Stack.Screen
-          name="Notifications"
-          component={NotificationScreen}
-          options={{ title: 'Notifications' }}
         />
         <Stack.Screen
           name="CounselorHome"
@@ -64,11 +57,6 @@ const AppNavigator = () => {
           name="CounselorComplaints"
           component={CounselorComplaintsScreen}
           options={{ title: 'Counselor Complaints' }}
-        />
-        <Stack.Screen
-          name="CounselorAnnouncement"
-          component={CounselorAnnouncementScreen}
-          options={{ title: 'Make Announcement' }}
         />
         <Stack.Screen
           name="CounselorDepartmentUpdates"

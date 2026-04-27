@@ -275,7 +275,7 @@ const ComplaintStatusScreen = ({ route }) => {
                           <Text style={styles.stageTitle}>{item.title}</Text>
                           <Text style={styles.stageSubtitle}>
                             {isActive
-                              ? 'Stage updated and visible to the citizen.'
+                              ? 'Stage updated'
                               : 'This stage will be updated as your complaint progresses.'}
                           </Text>
                         </View>
@@ -326,6 +326,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 20,
+    paddingTop : 0,
     paddingBottom: 32
   },
   centerCard: {
